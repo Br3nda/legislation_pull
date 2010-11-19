@@ -1,10 +1,9 @@
 <?php
 require('./governments.inc.php');
+
 do_command('rm -rf ./repo');
 mkdir('repo');
-
-
-do_command("git init");
+// do_command("git init");
 
 foreach(dirListing() as $doc_type) {
   echo "=== INDEXING  $doc_type \n";
@@ -29,17 +28,43 @@ function commit_document($doc_type, $doc_area, $year, $did, $version) {
   $xml = file_get_contents("www.legislation.govt.nz/subscribe/$doc_type/$doc_area/$year/$did/$version");
   $xml = (array)new SimpleXMLElement($xml);
   $body = (array)$xml['body'];
-  $ul = (array)$body['ul'];
+  $path = $body['h1'];
   
+  $ul = (array)$body['ul'];
   $xml_file = (array)$ul['li'][0];
   $pdf = (array)$ul['li'][1];
   $xml_filename = $xml_file['a'] ."\n";
+  
+  $url = "http://www.legislation.govt.nz$path/$xml_filename";
+  echo "$url\n";
+  
   $pdf_filename = $pdf['a'];
   $title = preg_replace('!\.pdf$!', '', $pdf_filename);
   echo "title = $title\n";
+//   var_dump($body);
 
-  
-//   var_dump((array)$xml);
+  $dir_name = "";
+  chdir("repo/");
+  //all the bits, except $version and year
+  foreach(array($doc_type, $doc_area) as $a) {
+    $dir_name .= "$a/";
+    if (!is_dir($dir_name)) {
+      echo "Making $dir_name\n";
+      do_command("mkdir $dir_name");
+    }
+  }
+
+
+  $file = str_replace(" ", "_", $title);
+  do_command("echo 'Version $version' > $dir_name$file");
+  do_command("git add $dir_name$file");
+
+  $govt = government($year);
+  do_command("git commit $dir_name$file --author=\"$govt <government of $year>\" -m =\"$title\" --date=\"$year-01-01\"");
+  do_command("git status");
+
+  chdir('..');
+  echo "\n\n";
 }
 
 function dirListing($dir='.') {
